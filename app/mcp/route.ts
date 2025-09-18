@@ -90,14 +90,7 @@ const handler = createMcpHandler(
             async ({ x, y, color }) => {
                 await logToolUsed("set_pixel", { x, y, color });
                 const updated = await setPixel({ x, y, color, source: "mcp" });
-                const html = renderCanvasHtml(updated);
-                const uri = (`ui://place`) as `ui://${string}`;
-                const resource = createUIResource({
-                    uri,
-                    content: { type: 'rawHtml', htmlString: html },
-                    encoding: 'blob',
-                });
-                return { content: [resource] } as const;
+                return { content: [{ type: 'text', text: JSON.stringify(updated) }] } as const;
             }
         );
 
