@@ -1,17 +1,20 @@
 {
-  "name": "place.mcpay.tech",
+  "name": "mcplace",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev --turbopack --port 3001",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@mcp-ui/server": "^5.11.0",
+    "@upstash/redis": "^1",
+    "mcp-handler": "^1.0.2",
+    "next": "15.5.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "next": "15.5.3"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "typescript": "^5",

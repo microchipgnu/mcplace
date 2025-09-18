@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# place.mcpay.tech
 
-## Getting Started
+A minimal r/place-inspired pixel canvas with MCP tools, built on Next.js. Uses Vercel KV for storage.
 
-First, run the development server:
+## Running locally
+
+1) Install deps
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2) Set Vercel KV env vars (create a `.env.local`)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+KV_URL=...
+KV_REST_API_URL=...
+KV_REST_API_TOKEN=...
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+If using Vercel, add the KV integration and `vercel link` + `vercel env pull` to populate these automatically.
 
-## Learn More
+3) Start dev server
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open http://localhost:3000 and paint.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## API
 
-## Deploy on Vercel
+- GET `/api/canvas` → returns full canvas state `{ meta, pixelsBase64 }`.
+- POST `/api/canvas` with `{ action: "set_pixel", x, y, colorIndex }`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Note: On first access, the canvas is initialized automatically if no state exists.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## MCP Tools
+
+The server exposes 2 tools in `app/mcp/route.ts`:
+
+- `get_canvas`: returns the current state
+- `set_pixel`: set one pixel by coordinates and palette index
+
+## Implementation notes
+
+- Canvas state is stored as `{ meta, pixelsBase64 }` in KV at `canvas:v1`.
+- Pixels are stored as base64-encoded `Uint8Array` of palette indices for compactness.
+- Default canvas is 64x64 with a small palette; adjust as needed.
