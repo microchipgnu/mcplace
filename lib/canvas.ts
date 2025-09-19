@@ -17,7 +17,7 @@ const CANVAS_KEY = "canvas:v1";
 const EVENTS_LIST_KEY = "canvas:events:v1";
 
 export type PixelSource = "mcp" | "api" | "script" | "system";
-export type ToolName = "get_canvas" | "set_pixel" | "get_events";
+export type ToolName = "get_canvas" | "set_pixel" | "set_pixels" | "get_events";
 
 export type PixelSetEvent = {
     type: "pixel_set";
@@ -115,39 +115,50 @@ export async function getCanvasEvents(params?: { limit?: number }): Promise<Canv
     if (typeof limit === "number" && limit > 0) {
         const length = await redis.llen(EVENTS_LIST_KEY);
         const start = Math.max(0, length - limit);
-        const values = await redis.lrange<string>(EVENTS_LIST_KEY, start, length - 1);
+        const values: unknown[] = await redis.lrange(EVENTS_LIST_KEY, start, length - 1);
         return values
-            .map((v) => {
-                try {
-                    const parsed: unknown = JSON.parse(v);
-                    if (!parsed || typeof parsed !== "object") return undefined;
-                    const type = (parsed as { type?: string }).type;
-                    if (type === "pixel_set") {
-                        return parsed as PixelSetEvent;
+            .map((raw): CanvasEvent | undefined => {
+                let value: unknown = raw;
+                // Handle strings (possibly double-encoded JSON) and already-parsed objects
+                for (let i = 0; i < 2; i++) {
+                    if (typeof value === "string") {
+                        try {
+                            value = JSON.parse(value);
+                            continue;
+                        } catch {
+                            break;
+                        }
                     }
-                    if (type === "tool_used") {
-                        return parsed as ToolUsedEvent;
-                    }
-                    return undefined;
-                } catch {
-                    return undefined;
+                    break;
                 }
+                if (!value || typeof value !== "object") return undefined;
+                const type = (value as { type?: string }).type;
+                if (type === "pixel_set") return value as PixelSetEvent;
+                if (type === "tool_used") return value as ToolUsedEvent;
+                return undefined;
             })
             .filter((e): e is CanvasEvent => Boolean(e));
     }
-    const all = await redis.lrange<string>(EVENTS_LIST_KEY, 0, -1);
+    const all: unknown[] = await redis.lrange(EVENTS_LIST_KEY, 0, -1);
     return all
-        .map((v) => {
-            try {
-                const parsed: unknown = JSON.parse(v);
-                if (!parsed || typeof parsed !== "object") return undefined;
-                const type = (parsed as { type?: string }).type;
-                if (type === "pixel_set") return parsed as PixelSetEvent;
-                if (type === "tool_used") return parsed as ToolUsedEvent;
-                return undefined;
-            } catch {
-                return undefined;
+        .map((raw): CanvasEvent | undefined => {
+            let value: unknown = raw;
+            for (let i = 0; i < 2; i++) {
+                if (typeof value === "string") {
+                    try {
+                        value = JSON.parse(value);
+                        continue;
+                    } catch {
+                        break;
+                    }
+                }
+                break;
             }
+            if (!value || typeof value !== "object") return undefined;
+            const type = (value as { type?: string }).type;
+            if (type === "pixel_set") return value as PixelSetEvent;
+            if (type === "tool_used") return value as ToolUsedEvent;
+            return undefined;
         })
         .filter((e): e is CanvasEvent => Boolean(e));
 }
@@ -229,6 +240,70 @@ export async function setPixel(params: {
         source: source ?? "system",
     };
     await appendEventToLog(event);
+    return updated;
+}
+
+export type PixelUpdate = {
+    x: number;
+    y: number;
+    color: string;
+};
+
+export async function setPixels(params: {
+    updates: PixelUpdate[];
+    source?: PixelSource;
+}): Promise<CanvasState> {
+    const { updates, source } = params;
+    if (!Array.isArray(updates) || updates.length === 0) {
+        throw new Error("'updates' must be a non-empty array");
+    }
+
+    const current = await getCanvas();
+    const { width, height } = current.meta;
+    let { palette } = current.meta;
+
+    // Decode once and apply all writes
+    const pixels = decodePixelsFromBase64(current.pixelsBase64, width * height);
+
+    for (const update of updates) {
+        const { x, y, color } = update;
+        if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= width || y >= height) {
+            throw new Error(`Pixel coordinates out of bounds: (${x}, ${y})`);
+        }
+        if (typeof color !== "string" || color.trim().length === 0) {
+            throw new Error("Color must be a non-empty string");
+        }
+
+        const ensured = ensureColorInPalette(palette, color);
+        palette = ensured.updatedPalette;
+        const indexToSet = ensured.colorIndex;
+        pixels[indexFor(x, y, width)] = indexToSet;
+    }
+
+    const updated: CanvasState = {
+        meta: { ...current.meta, palette },
+        pixelsBase64: encodePixelsToBase64(pixels),
+    };
+    await redis.set(CANVAS_KEY, updated);
+
+    // Append an event per pixel for replay
+    const now = Date.now();
+    for (const update of updates) {
+        const ensured = ensureColorInPalette(palette, update.color);
+        const colorIndex = ensured.colorIndex;
+        const normalizedColor = palette[colorIndex];
+        const event: PixelSetEvent = {
+            type: "pixel_set",
+            x: update.x,
+            y: update.y,
+            color: normalizedColor,
+            colorIndex,
+            timestampMs: now,
+            source: source ?? "system",
+        };
+        await appendEventToLog(event);
+    }
+
     return updated;
 }
 

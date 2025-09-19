@@ -1,6 +1,6 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { getCanvas, setPixel, type CanvasState, getCanvasEvents, logToolUsed } from "@/lib/canvas";
+import { getCanvas, setPixel, setPixels, type CanvasState, getCanvasEvents, logToolUsed } from "@/lib/canvas";
 
 export const runtime = "nodejs";
 import { createUIResource } from "@mcp-ui/server";
@@ -90,6 +90,25 @@ const handler = createMcpHandler(
             async ({ x, y, color }) => {
                 await logToolUsed("set_pixel", { x, y, color });
                 const updated = await setPixel({ x, y, color, source: "mcp" });
+                return { content: [{ type: 'text', text: JSON.stringify(updated) }] } as const;
+            }
+        );
+
+        server.tool(
+            "set_pixels",
+            "Set multiple pixels in one call",
+            {
+                updates: z.array(
+                    z.object({
+                        x: z.number().int().min(0),
+                        y: z.number().int().min(0),
+                        color: z.string().default("#000000"),
+                    })
+                ).min(1),
+            },
+            async ({ updates }) => {
+                await logToolUsed("set_pixels", { updates });
+                const updated = await setPixels({ updates, source: "mcp" });
                 return { content: [{ type: 'text', text: JSON.stringify(updated) }] } as const;
             }
         );

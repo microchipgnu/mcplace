@@ -11,6 +11,7 @@
   "dependencies": {
     "@mcp-ui/server": "^5.11.0",
     "@upstash/redis": "^1",
+    "dotenv": "^17.2.2",
     "mcp-handler": "^1.0.2",
     "next": "15.5.3",
     "react": "19.1.0",
