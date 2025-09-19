@@ -223,6 +223,23 @@ export default function Home() {
           <span className="text-sm">Events</span>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">{events.length}</span>
         </button>
+        <a
+          href="https://github.com/microchipgnu/mcplace"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-300 dark:border-zinc-700 rounded-md px-3 py-2 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          title="Open source repository on GitHub"
+        >
+          <Image
+            aria-hidden
+            src="/window.svg"
+            alt="External link icon"
+            width={16}
+            height={16}
+            className="opacity-80"
+          />
+          <span className="text-sm">GitHub</span>
+        </a>
       </footer>
       {eventsOpen && (
         <div
